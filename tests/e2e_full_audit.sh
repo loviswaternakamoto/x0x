@@ -23,15 +23,18 @@ GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YEL='\033[0;33m'; NC='\
 P=0; F=0; S=0
 AP=""; BP=""; CP=""
 AT=""; BT=""; CT=""
-USER_KEY_PATH="/tmp/x0x-fulltest-user.key"
+# user-id create also writes owner.json beside the key; a per-run directory
+# keeps reruns isolated from an older owner profile and cleans both together.
+USER_KEY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/x0x-fulltest-user.XXXXXX")
+USER_KEY_PATH="$USER_KEY_DIR/user.key"
 
 cleanup() {
   [ -n "$AP" ] && kill "$AP" 2>/dev/null || true
   [ -n "$BP" ] && kill "$BP" 2>/dev/null || true
   [ -n "$CP" ] && kill "$CP" 2>/dev/null || true
   wait "$AP" "$BP" "$CP" 2>/dev/null || true
-  rm -rf "$ADIR" "$BDIR" "$CDIR"
-  rm -f "$USER_KEY_PATH" "${STATUS_FILE:-}"
+  rm -rf "$ADIR" "$BDIR" "$CDIR" "$USER_KEY_DIR"
+  rm -f "${STATUS_FILE:-}"
 }
 trap cleanup EXIT
 
@@ -1075,17 +1078,17 @@ R=$(bpst /agents/connect "{\"agent_id\":\"$AID\"}") >/dev/null
 WS_DIRECT_MSG="${PROOF_TOKEN}-ws-direct"
 WS_DIRECT_LOG=$(mktemp)
 if [ "$WS_AVAILABLE" = 1 ]; then
-  node tests/helpers/ws_probe.mjs direct-receive "$BA" "$BT" 20000 > "$WS_DIRECT_LOG" &
+  node tests/helpers/ws_probe.mjs direct-receive "$BA" "$BT" 20000 "$WS_DIRECT_MSG" > "$WS_DIRECT_LOG" &
   WS_DIRECT_PID=$!
   sleep 3
   WS_SEND=$(node tests/helpers/ws_probe.mjs send-direct "$AA" "$AT" "$BID" "$WS_DIRECT_MSG" 2>/dev/null || echo '{"error":"ws_fail"}')
   chk "$WS_SEND" "pong" "GET /ws send_direct command"
   wait "$WS_DIRECT_PID" 2>/dev/null || true
-  chk "$(cat "$WS_DIRECT_LOG" 2>/dev/null || echo '{}')" "received" "GET /ws/direct receives direct_message frame"
+  chk "$(cat "$WS_DIRECT_LOG" 2>/dev/null || echo '{}')" "received" "GET /ws/direct receives matching direct_message frame"
   check_contains "GET /ws/direct payload matched" "$(cat "$WS_DIRECT_LOG" 2>/dev/null || echo '{}')" "$(printf '%s' "$WS_DIRECT_MSG" | base64)"
 else
   skip "GET /ws send_direct command" "node>=21 WebSocket absent"
-  skip "GET /ws/direct receives direct_message frame" "node>=21 WebSocket absent"
+  skip "GET /ws/direct receives matching direct_message frame" "node>=21 WebSocket absent"
   skip "GET /ws/direct payload matched" "node>=21 WebSocket absent"
 fi
 rm -f "$WS_DIRECT_LOG"

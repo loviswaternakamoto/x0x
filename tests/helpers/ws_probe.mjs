@@ -6,7 +6,7 @@ function usage() {
   console.error(`usage:
   ws_probe.mjs pubsub <base_url> <token> <topic> <message>
   ws_probe.mjs receive-pubsub <base_url> <token> <topic> <timeout_ms>
-  ws_probe.mjs direct-receive <base_url> <token> <timeout_ms>
+  ws_probe.mjs direct-receive <base_url> <token> <timeout_ms> <expected_message>
   ws_probe.mjs send-direct <base_url> <token> <agent_id> <message>
   ws_probe.mjs hold <path> <base_url> <token> <hold_ms>`);
   process.exit(2);
@@ -144,11 +144,19 @@ async function run() {
   }
 
   if (mode === 'direct-receive') {
-    if (args.length !== 3) usage();
-    const [baseUrl, token, timeoutMsRaw] = args;
+    if (args.length !== 4) usage();
+    const [baseUrl, token, timeoutMsRaw, expectedMessage] = args;
     const timeoutMs = Number(timeoutMsRaw);
     const { ws, connected } = await connect('/ws/direct', baseUrl, token);
-    const received = await recvJson(ws, timeoutMs, (frame) => frame?.type === 'direct_message');
+    const expectedPayload = b64(expectedMessage);
+    // The direct lane also carries control messages (for example, a group
+    // membership event). Wait for the exact payload sent by this probe rather
+    // than treating the first direct_message frame as proof of delivery.
+    const received = await recvJson(
+      ws,
+      timeoutMs,
+      (frame) => frame?.type === 'direct_message' && frame?.payload === expectedPayload,
+    );
     ws.close();
     console.log(JSON.stringify({ ok: true, mode, connected, received }));
     return;
