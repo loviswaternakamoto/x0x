@@ -14,7 +14,7 @@ and ranks per-topic EAGER byte *deltas* (never cumulative t1 totals).
 Usage:
     python3 -m venv .venv
     .venv/bin/python -m pip install blake3
-    .venv/bin/python scripts/capture-egress.py [--window-secs N] [TOPIC ...]
+    .venv/bin/python scripts/capture-egress.py --window-secs N --out-dir DIR [TOPIC ...]
 
 Extra positional TOPIC arguments name node-specific topics (identity/machine/
 user shards) so their hex8 keys resolve instead of showing `unknown-hex`.
@@ -192,7 +192,15 @@ def main() -> None:
     parser.add_argument("topics", nargs="*", help="extra node-specific topic names")
     args = parser.parse_args()
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
+    if args.window_secs < 300:
+        parser.error("--window-secs must be >= 300; a shorter window is not acceptable evidence")
+    if args.out_dir.exists() and any(args.out_dir.iterdir()):
+        sys.exit(
+            f"Refusing to write into occupied evidence directory: {args.out_dir} "
+            "(fixed filenames would overwrite a previous run; pass a fresh --out-dir)"
+        )
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)  # occupied dirs were refused above
     names = {topic_hex8(t): t for t in FIXED_TOPICS + args.topics}
     (args.out_dir / "topic-names.json").write_text(json.dumps(names, indent=2), encoding="utf-8")
 
