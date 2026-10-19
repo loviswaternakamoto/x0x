@@ -686,7 +686,10 @@ fn extract_from_zip(
         if !entry.is_file() {
             continue;
         }
-        let file_name = Path::new(entry.name())
+        let entry_name = entry
+            .name()
+            .map_err(|e| UpgradeError::ExtractionError(format!("bad zip entry name: {e}")))?;
+        let file_name = Path::new(entry_name.as_ref())
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
@@ -1178,6 +1181,60 @@ mod tests {
 
         extract_binary_from_archive(&archive_path, &output, "x0xd").unwrap();
         assert_eq!(std::fs::read(&output).unwrap(), content);
+    }
+
+    #[test]
+    fn test_extract_zip_skips_symlink_to_external_target() {
+        let dir = TempDir::new().unwrap();
+        let outside = dir.path().join("outside");
+        std::fs::write(&outside, b"must remain unchanged").unwrap();
+        let archive_path = dir.path().join("test.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive_path).unwrap());
+        zip.add_symlink(
+            "x0xd",
+            outside.to_string_lossy(),
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.finish().unwrap();
+        let output = dir.path().join("extracted");
+
+        // Archive link targets must never become filesystem operations.
+        assert!(extract_binary_from_archive(&archive_path, &output, "x0xd").is_err());
+        assert!(!output.exists());
+        assert_eq!(std::fs::read(outside).unwrap(), b"must remain unchanged");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_extract_deflated_zip_masks_privileged_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = TempDir::new().unwrap();
+        let content = fake_binary(b"deflated daemon");
+        let archive_path = dir.path().join("test.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive_path).unwrap());
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .external_attributes(0o106777 << 16);
+        zip.start_file("nested/x0xd", options).unwrap();
+        zip.write_all(&content).unwrap();
+        zip.finish().unwrap();
+        let output = dir.path().join("extracted");
+
+        let mut archive =
+            zip::ZipArchive::new(std::fs::File::open(&archive_path).unwrap()).unwrap();
+        // ZIP 9 strips special bits when exposing archive permissions too.
+        assert_eq!(
+            archive.by_index(0).unwrap().unix_mode().unwrap() & 0o7777,
+            0o777
+        );
+        extract_binary_from_archive(&archive_path, &output, "x0xd").unwrap();
+        assert_eq!(std::fs::read(&output).unwrap(), content);
+        assert_eq!(
+            std::fs::metadata(output).unwrap().permissions().mode() & 0o7777,
+            0o755
+        );
     }
 
     #[test]
