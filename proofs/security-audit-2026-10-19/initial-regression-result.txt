@@ -1,0 +1,35 @@
+   Compiling saorsa-gossip-runtime v0.5.86
+   Compiling x0x v0.46.0 (/mnt/c/Users/travi/wt-codex-x0x-security-1019)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25m 23s
+     Running unittests src/lib.rs (/home/travi/target-x0x-security-1019/debug/deps/x0x-ace09c1ad33fc80f)
+
+running 14 tests
+
+thread 'upgrade::apply::tests::test_extract_deflated_zip_masks_privileged_permissions' (2771832) panicked at src/upgrade/apply.rs:1227:9:
+assertion `left == right` failed
+  left: 511
+ right: 3583
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test upgrade::apply::tests::test_extract_from_zip ... ok
+test upgrade::apply::tests::test_extract_refuses_archive_with_only_appledouble_sidecar ... ok
+test upgrade::apply::tests::test_extract_nested_path ... ok
+test upgrade::apply::tests::test_extract_refuses_duplicate_binary_in_tar_gz ... ok
+test upgrade::apply::tests::test_extract_appledouble_sidecar_is_ignored ... ok
+test upgrade::apply::tests::test_extract_deflated_zip_masks_privileged_permissions ... FAILED
+test upgrade::apply::tests::test_extract_refuses_duplicate_binary_in_zip ... ok
+test upgrade::apply::tests::test_extract_from_tar_gz ... ok
+test upgrade::apply::tests::test_extract_refuses_hardlink_named_as_binary ... ok
+test upgrade::apply::tests::test_extract_refuses_non_executable_magic ... ok
+test upgrade::apply::tests::test_extract_refuses_zip_with_only_appledouble_sidecar ... ok
+test upgrade::apply::tests::test_extract_skips_symlink_named_as_binary ... ok
+test upgrade::apply::tests::test_extract_skips_zip_directory_named_as_binary ... ok
+test upgrade::apply::tests::test_extract_zip_skips_symlink_to_external_target ... ok
+
+failures:
+
+failures:
+    upgrade::apply::tests::test_extract_deflated_zip_masks_privileged_permissions
+
+test result: FAILED. 13 passed; 1 failed; 0 ignored; 0 measured; 3948 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--lib`
