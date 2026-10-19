@@ -1224,9 +1224,10 @@ mod tests {
 
         let mut archive =
             zip::ZipArchive::new(std::fs::File::open(&archive_path).unwrap()).unwrap();
+        // ZIP 9 strips special bits when exposing archive permissions too.
         assert_eq!(
-            archive.by_index(0).unwrap().unix_mode().unwrap() & 0o6777,
-            0o6777
+            archive.by_index(0).unwrap().unix_mode().unwrap() & 0o7777,
+            0o777
         );
         extract_binary_from_archive(&archive_path, &output, "x0xd").unwrap();
         assert_eq!(std::fs::read(&output).unwrap(), content);
