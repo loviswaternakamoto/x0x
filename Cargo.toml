@@ -233,3 +233,7 @@ split-debuginfo = "off"
 name = 'bnrose_shadow'
 required-features = ['bnrose-shadow']
 test = true
+
+[[example]]
+name = "bnrose_delivery"
+required-features = ["bnrose-shadow"]
