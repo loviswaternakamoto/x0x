@@ -8,7 +8,7 @@
       pkgs = import nixpkgs { inherit system; };
     in {
       default = pkgs.mkShell {
-        packages = with pkgs; [ rustup pkg-config openssl clang cmake perl git time ];
+        packages = with pkgs; [ rustup pkg-config openssl clang cmake perl git time util-linux ];
         LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
         shellHook = ''
           echo "BNRoSe shadow: use cargo +1.95.0; no daemon or live mesh is started."
