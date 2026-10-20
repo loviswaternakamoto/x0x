@@ -208,15 +208,27 @@ mod tests {
             let mut reference = [0xa5; MAX_ENV];
             let expected = btungsten_wb001_core::encode(&intent, &mut reference);
             let mut actual = [0x5a; MAX_ENV];
-            let encoded = encode_observation(&intent, &mut actual);
-            if expected as usize > MAX_ENV {
-                // valid_intent checks field capacities, which do not imply
-                // their combined wire fits MAX_ENV. Refuse without slicing.
-                assert_eq!(encoded, None);
-            } else {
-                assert_eq!(encoded, Some(expected as usize));
-                assert_eq!(actual, reference, "payload length {payload_len}");
-            }
+            assert_eq!(
+                encode_observation(&intent, &mut actual),
+                Some(expected as usize)
+            );
+            assert_eq!(actual, reference, "payload length {payload_len}");
         }
+    }
+
+    #[test]
+    fn oversized_internal_shape_refuses_before_slicing() {
+        // MAX_ENV exactly fits all legal field maxima. An invalid future
+        // internal shape must refuse before indexing the output buffer.
+        let mut intent = Intent::ZERO;
+        intent.domain_len = 64;
+        intent.nonce_len = 32;
+        intent.action_len = 32;
+        intent.destination_len = 128;
+        intent.capability_len = 64;
+        intent.payer_len = 128;
+        intent.payload_len = 4097;
+        assert_eq!(offsets(&intent).env as usize, MAX_ENV + 1);
+        assert_eq!(encode_observation(&intent, &mut [0; MAX_ENV]), None);
     }
 }
