@@ -21,14 +21,14 @@ const CAPABILITY: &[u8] = b"diagnostic/observe";
 // The original encoder also visits the zero padding up to MAX_ENV. Keeping
 // that padding zero here avoids thousands of redundant block dispatches.
 // This is private: callers below construct bounded, fixed-shape intents.
-fn encode_observation(intent: &Intent, out: &mut [u8; MAX_ENV]) -> usize {
+fn encode_observation(intent: &Intent, out: &mut [u8; MAX_ENV]) -> Option<usize> {
     let layout = offsets(intent);
     let len = layout.env as usize;
     out.fill(0);
-    for (k, byte) in out[..len].iter_mut().enumerate() {
+    for (k, byte) in out.get_mut(..len)?.iter_mut().enumerate() {
         *byte = byte_at(intent, &layout, k as u32);
     }
-    len
+    Some(len)
 }
 
 /// Receiver-owned scope. Every observer handles exactly one local peer binding.
@@ -145,7 +145,9 @@ impl ShadowObserver {
         // Amount remains zero. The core gets a digest-bound local observation;
         // the remote signature is NOT represented as signing this new envelope.
         let mut env = [0; MAX_ENV];
-        let len = encode_observation(&intent, &mut env);
+        let Some(len) = encode_observation(&intent, &mut env) else {
+            return Verdict::Core;
+        };
         let mut policy = Policy {
             domains: [([0; 64], 0); 4],
             capabilities: [([0; 64], 0); 4],
@@ -206,8 +208,15 @@ mod tests {
             let mut reference = [0xa5; MAX_ENV];
             let expected = btungsten_wb001_core::encode(&intent, &mut reference);
             let mut actual = [0x5a; MAX_ENV];
-            assert_eq!(encode_observation(&intent, &mut actual), expected as usize);
-            assert_eq!(actual, reference, "payload length {payload_len}");
+            let encoded = encode_observation(&intent, &mut actual);
+            if expected as usize > MAX_ENV {
+                // valid_intent checks field capacities, which do not imply
+                // their combined wire fits MAX_ENV. Refuse without slicing.
+                assert_eq!(encoded, None);
+            } else {
+                assert_eq!(encoded, Some(expected as usize));
+                assert_eq!(actual, reference, "payload length {payload_len}");
+            }
         }
     }
 }

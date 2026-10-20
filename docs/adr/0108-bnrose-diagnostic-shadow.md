@@ -89,6 +89,8 @@ only the transmitted prefix, with the remaining buffer explicitly zeroed.
 For the fixed observation shape this visits 335 bytes instead of 4,626. The
 core decoder, admission policy, signature verification and replay checks are
 unchanged. An equivalence test compares the entire buffer to the original
-encoder over all 4,097 payload lengths, text boundaries and integer edges.
+encoder over all 4,097 payload lengths, text boundaries and integer edges
+that fit the buffer; larger combined envelopes explicitly refuse. Individual
+WB001 field-capacity checks alone do not guarantee a combined envelope fits.
 This optimization does not cache authentication or add per-peer state.
 
