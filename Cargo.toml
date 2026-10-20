@@ -232,3 +232,4 @@ split-debuginfo = "off"
 [[example]]
 name = 'bnrose_shadow'
 required-features = ['bnrose-shadow']
+test = true
