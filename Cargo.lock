@@ -572,6 +572,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bnrose-exec-core"
+version = "0.1.0"
+source = "git+https://github.com/beehive-nature/beehive-nature?rev=49b88d7b294687711b9871f34a74b961f7d5f62a#49b88d7b294687711b9871f34a74b961f7d5f62a"
+dependencies = [
+ "btungsten-wb001-core",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -579,6 +588,11 @@ checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "btungsten-wb001-core"
+version = "0.1.0"
+source = "git+https://github.com/beehive-nature/beehive-nature?rev=49b88d7b294687711b9871f34a74b961f7d5f62a#49b88d7b294687711b9871f34a74b961f7d5f62a"
 
 [[package]]
 name = "bumpalo"
@@ -5614,6 +5628,8 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "blake3",
+ "bnrose-exec-core",
+ "btungsten-wb001-core",
  "bytes",
  "chacha20poly1305",
  "clap",

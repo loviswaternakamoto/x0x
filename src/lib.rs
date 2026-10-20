@@ -93,6 +93,8 @@ pub mod share_grant;
 pub mod announce_blob;
 /// V3 identity announcement (L3 slimming — merged + digest, self-verifying).
 pub mod announce_v3;
+#[cfg(feature = "bnrose-shadow")]
+pub mod bnrose_shadow;
 
 /// Storm control: announce-topic forward suppression (replay + flood).
 pub mod storm_control;
