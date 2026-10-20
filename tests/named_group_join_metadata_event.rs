@@ -887,16 +887,33 @@ async fn non_creator_admin_invite_e2e_converges_for_preset(
     let admin_invite = create_invite(admin, &admin_group_id).await;
     let parsed_invite = x0x::groups::invite::SignedInvite::from_link(&admin_invite)
         .expect("admin-issued invite parses");
+    // ADR-0059: v4 replaces the legacy fat roster with a projection and
+    // an explicit signed creator. Do not derive provenance from fields
+    // deliberately absent from the authenticated wire format.
+    assert_eq!(
+        parsed_invite.version,
+        x0x::groups::invite::INVITE_VERSION_V4
+    );
+    assert!(parsed_invite.base_members_v2.is_none());
+    assert!(parsed_invite.base_roster.is_some());
+    parsed_invite
+        .verify_v4_signatures()
+        .expect("admin-issued invite has a valid bound ML-DSA signature");
     assert_eq!(
         parsed_invite.inviter, admin_id,
         "invite routing target must be the issuing admin"
     );
     assert_eq!(
-        parsed_invite
-            .creator_agent_id_from_base_state()
-            .expect("creator provenance derives from base state"),
-        creator_id,
-        "creator provenance must stay historical, not authority-bearing inviter metadata"
+        parsed_invite.creator.as_deref(),
+        Some(creator_id.as_str()),
+        "signed creator provenance must stay historical, distinct from the issuing admin"
+    );
+    let mut tampered_invite = parsed_invite.clone();
+    tampered_invite.creator = Some(admin_id.clone());
+    assert_eq!(
+        tampered_invite.verify_v4_signatures(),
+        Err(x0x::groups::invite::InviteRefusal::InviterSignatureInvalid),
+        "replacing creator provenance must invalidate the inviter signature"
     );
 
     let join_resp = join_via_invite(joiner, &admin_invite, "joiner-via-admin").await;
