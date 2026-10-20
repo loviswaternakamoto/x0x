@@ -84,3 +84,11 @@ scale. Record toolchain, OS, exact revision, mode and raw output. Measure live
 delivery, process memory, durable fsync, partitions and queue fairness separately
 before any broader adoption claim.
 
+The adapter uses the pinned WB001 `offsets` and `byte_at` functions to encode
+only the transmitted prefix, with the remaining buffer explicitly zeroed.
+For the fixed observation shape this visits 335 bytes instead of 4,626. The
+core decoder, admission policy, signature verification and replay checks are
+unchanged. An equivalence test compares the entire buffer to the original
+encoder over all 4,097 payload lengths, text boundaries and integer edges.
+This optimization does not cache authentication or add per-peer state.
+

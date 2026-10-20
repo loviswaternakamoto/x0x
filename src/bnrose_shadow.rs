@@ -9,13 +9,27 @@ use crate::{
     identity::{AgentId, MachineId},
 };
 use bnrose_exec_core::{admit, Policy, MAX_VERDICT};
-use btungsten_wb001_core::{encode, Intent, MAX_ENV};
+use btungsten_wb001_core::{byte_at, offsets, Intent, MAX_ENV};
 use sha2::{Digest, Sha256};
 
 /// Maximum signed input accepted before decoding or signature verification.
 pub const WIRE_CAP: usize = 8192;
 const DOMAIN: &[u8] = b"x0x/shadow/v1";
 const CAPABILITY: &[u8] = b"diagnostic/observe";
+
+// Use the pinned core's byte definition only for the transmitted prefix.
+// The original encoder also visits the zero padding up to MAX_ENV. Keeping
+// that padding zero here avoids thousands of redundant block dispatches.
+// This is private: callers below construct bounded, fixed-shape intents.
+fn encode_observation(intent: &Intent, out: &mut [u8; MAX_ENV]) -> usize {
+    let layout = offsets(intent);
+    let len = layout.env as usize;
+    out.fill(0);
+    for (k, byte) in out[..len].iter_mut().enumerate() {
+        *byte = byte_at(intent, &layout, k as u32);
+    }
+    len
+}
 
 /// Receiver-owned scope. Every observer handles exactly one local peer binding.
 #[derive(Clone, Copy)]
@@ -131,7 +145,7 @@ impl ShadowObserver {
         // Amount remains zero. The core gets a digest-bound local observation;
         // the remote signature is NOT represented as signing this new envelope.
         let mut env = [0; MAX_ENV];
-        let len = encode(&intent, &mut env) as usize;
+        let len = encode_observation(&intent, &mut env);
         let mut policy = Policy {
             domains: [([0; 64], 0); 4],
             capabilities: [([0; 64], 0); 4],
@@ -157,5 +171,43 @@ impl ShadowObserver {
         }
         self.last = Some(sequence);
         Verdict::Observed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefix_encoder_matches_pinned_encoder_including_padding() {
+        // Sweep every payload length plus text boundaries and integer edges;
+        // compare the entire buffer, including reuse of nonzero scratch space.
+        for payload_len in 0..=4096 {
+            let mut intent = Intent::ZERO;
+            let text_len = [1, 12, 17, 32, 63, 64][payload_len % 6];
+            intent.domain[..text_len].fill(b'd');
+            intent.domain_len = text_len as u32;
+            intent.capability[..text_len].fill(b'c');
+            intent.capability_len = text_len as u32;
+            let identity_len = [1, 64, 127, 128][payload_len % 4];
+            intent.destination[..identity_len].fill(b'7');
+            intent.destination_len = identity_len as u32;
+            intent.payer[..identity_len].fill(b'a');
+            intent.payer_len = identity_len as u32;
+            intent.nonce = [payload_len as u8; 32];
+            intent.nonce_len = 32;
+            intent.action = [!payload_len as u8; 32];
+            intent.action_len = 32;
+            intent.epoch = [0, 1, u32::MAX as u64, u64::MAX][payload_len % 4];
+            intent.expiry = intent.epoch.saturating_add(900);
+            intent.payload[..payload_len].fill(payload_len as u8);
+            intent.payload_len = payload_len as u32;
+            assert!(btungsten_wb001_core::valid_intent(&intent));
+            let mut reference = [0xa5; MAX_ENV];
+            let expected = btungsten_wb001_core::encode(&intent, &mut reference);
+            let mut actual = [0x5a; MAX_ENV];
+            assert_eq!(encode_observation(&intent, &mut actual), expected as usize);
+            assert_eq!(actual, reference, "payload length {payload_len}");
+        }
     }
 }
